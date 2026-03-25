@@ -26,13 +26,16 @@ export default function LocationsPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    console.log('[Locations] Fetching locations');
     fetch("/api/locations")
       .then((res) => res.json())
       .then((data) => {
+        console.log('[Locations] Locations loaded:', data.length);
         setLocations(data);
         setLoading(false);
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error('[Locations] Failed to load locations:', err);
         setError("Failed to load locations");
         setLoading(false);
       });

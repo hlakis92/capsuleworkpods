@@ -116,13 +116,15 @@ export default function MyBookingsPage() {
   useEffect(() => {
     if (!user) return;
 
+    console.log('[MyBookings] Fetching user bookings');
     fetch("/api/bookings")
       .then((res) => res.json())
       .then((data) => {
+        console.log('[MyBookings] Bookings loaded:', data.length);
         setBookings(data);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch((err) => { console.error('[MyBookings] Failed to load bookings:', err); setLoading(false); });
   }, [user]);
 
   if (authPending) {

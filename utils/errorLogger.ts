@@ -117,7 +117,7 @@ const flushLogs = async () => {
           fetchErrorLogged = true;
           // Use a different method to avoid recursion - write directly without going through our intercept
           if (typeof window !== 'undefined' && window.console) {
-            (window.console as unknown as { __proto__: { log: (...a: unknown[]) => void } }).__proto__.log.call(console, '[Newly] Fetch error (will not repeat):', (e as Error).message || e);
+            Object.getPrototypeOf(window.console).log.call(console, '[Newly] Fetch error (will not repeat):', (e as Error).message || e);
           }
         }
       });
@@ -179,41 +179,6 @@ const sendErrorToParent = (level: string, message: string, data: unknown) => {
   } catch {
     // Silently fail
   }
-};
-
-// Function to extract meaningful source location from stack trace
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const extractSourceLocation = (stack: string): string => {
-  if (!stack) return '';
-
-  // Look for various patterns in the stack trace
-  const patterns = [
-    // Pattern for app files: app/filename.tsx:line:column
-    /at .+\/(app\/[^:)]+):(\d+):(\d+)/,
-    // Pattern for components: components/filename.tsx:line:column
-    /at .+\/(components\/[^:)]+):(\d+):(\d+)/,
-    // Pattern for any .tsx/.ts files
-    /at .+\/([^/]+\.tsx?):(\d+):(\d+)/,
-    // Pattern for bundle files with source maps
-    /at .+\/([^/]+\.bundle[^:]*):(\d+):(\d+)/,
-    // Pattern for any JavaScript file
-    /at .+\/([^/\s:)]+\.[jt]sx?):(\d+):(\d+)/
-  ];
-
-  for (const pattern of patterns) {
-    const match = stack.match(pattern);
-    if (match) {
-      return `${match[1]}:${match[2]}:${match[3]}`;
-    }
-  }
-
-  // If no specific pattern matches, try to find any file reference
-  const fileMatch = stack.match(/at .+\/([^/\s:)]+\.[jt]sx?):(\d+)/);
-  if (fileMatch) {
-    return `${fileMatch[1]}:${fileMatch[2]}`;
-  }
-
-  return '';
 };
 
 // Function to get caller information from stack trace

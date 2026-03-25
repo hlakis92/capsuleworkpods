@@ -662,23 +662,27 @@ export default function BookingWizardPage() {
 
   // Fetch all locations for step 1
   useEffect(() => {
+    console.log('[BookingWizard] Fetching locations');
     fetch("/api/locations")
       .then((res) => res.json())
       .then((data) => {
+        console.log('[BookingWizard] Locations loaded:', data.length);
         setLocations(data);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch((err) => { console.error('[BookingWizard] Failed to load locations:', err); setLoading(false); });
   }, []);
 
   // Fetch membership discounts from settings
   useEffect(() => {
+    console.log('[BookingWizard] Fetching membership discounts');
     fetch("/api/membership-discounts")
       .then((res) => res.json())
       .then((data) => {
+        console.log('[BookingWizard] Membership discounts loaded:', data);
         setMembershipDiscounts({ ...DEFAULT_DISCOUNTS, ...data });
       })
-      .catch(() => {});
+      .catch((err) => console.error('[BookingWizard] Failed to load discounts:', err));
   }, []);
 
   // Fetch location details when location is selected
@@ -688,12 +692,14 @@ export default function BookingWizardPage() {
       return;
     }
 
+    console.log('[BookingWizard] Fetching location details for:', booking.locationSlug);
     fetch(`/api/locations/${booking.locationSlug}`)
       .then((res) => res.json())
       .then((data) => {
+        console.log('[BookingWizard] Location details loaded:', data.name);
         setSelectedLocation(data);
       })
-      .catch(() => {});
+      .catch((err) => console.error('[BookingWizard] Failed to load location:', err));
   }, [booking.locationSlug]);
 
   // Fetch availability when pod and date are selected
@@ -703,12 +709,14 @@ export default function BookingWizardPage() {
       return;
     }
 
+    console.log('[BookingWizard] Fetching availability for pod', booking.podId, 'on', booking.date);
     fetch(`/api/pods/${booking.podId}/availability?date=${booking.date}`)
       .then((res) => res.json())
       .then((data) => {
+        console.log('[BookingWizard] Availability loaded, booked slots:', data.booked_slots?.length ?? 0);
         setBookedSlots(data.booked_slots || []);
       })
-      .catch(() => setBookedSlots([]));
+      .catch((err) => { console.error('[BookingWizard] Failed to load availability:', err); setBookedSlots([]); });
   }, [booking.podId, booking.date]);
 
   const selectedPod = useMemo(() => {
@@ -748,6 +756,7 @@ export default function BookingWizardPage() {
   }, [step, booking, user, hasTimeConflict]);
 
   const handleNext = async () => {
+    console.log('[BookingWizard] Next button pressed, step:', step);
     if (step < 5) {
       setStep(step + 1);
     } else {
@@ -775,6 +784,7 @@ export default function BookingWizardPage() {
         // Calculate prorated minutes for pricing
         const { actualMinutes, isProrated } = calculateProratedMinutes(booking.date, booking.time, booking.duration);
 
+        console.log('[BookingWizard] Submitting booking:', { pod_id: booking.podId, start_time: startTime, end_time: endTime });
         const response = await fetch("/api/bookings", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -794,6 +804,7 @@ export default function BookingWizardPage() {
         }
 
         const bookingData = await response.json();
+        console.log('[BookingWizard] Booking created, id:', bookingData.id);
         // Navigate to payment or booking confirmation
         navigate(`/bookings/${bookingData.id}`);
       } catch (err) {
@@ -805,6 +816,7 @@ export default function BookingWizardPage() {
   };
 
   const handleBack = () => {
+    console.log('[BookingWizard] Back button pressed, step:', step);
     if (step > 1) {
       setStep(step - 1);
     }

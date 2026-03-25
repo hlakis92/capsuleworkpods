@@ -88,13 +88,16 @@ export default function NearMePage() {
 
   // Fetch locations from API
   useEffect(() => {
+    console.log('[NearMe] Fetching locations');
     fetch("/api/locations")
       .then((res) => res.json())
       .then((data) => {
+        console.log('[NearMe] Locations loaded:', data.length);
         setLocations(data);
         setLoadingLocations(false);
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error('[NearMe] Failed to load locations:', err);
         setLoadingLocations(false);
       });
   }, []);
@@ -115,6 +118,7 @@ export default function NearMePage() {
     : defaultCenter;
 
   const requestLocation = () => {
+    console.log('[NearMe] Find My Location pressed');
     setIsLocating(true);
     setLocationError(null);
 
@@ -126,6 +130,7 @@ export default function NearMePage() {
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        console.log('[NearMe] User location obtained:', position.coords.latitude, position.coords.longitude);
         setUserLocation({
           lat: position.coords.latitude,
           lng: position.coords.longitude,

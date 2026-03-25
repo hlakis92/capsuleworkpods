@@ -96,13 +96,16 @@ export default function ProfilePage() {
   }, [showUpgradeModal, tiers.length]);
 
   const handleLogout = async () => {
+    console.log('[Profile] Sign out pressed');
     await logout();
     navigate("/");
   };
 
   const handleUpgrade = async (tier: string) => {
+    console.log('[Profile] Upgrade membership pressed, tier:', tier);
     setUpgrading(tier);
     try {
+      console.log('[Profile] POST /api/membership/upgrade');
       const res = await fetch("/api/membership/upgrade", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -110,6 +113,7 @@ export default function ProfilePage() {
       });
       const data = await res.json();
       if (data.url) {
+        console.log('[Profile] Redirecting to Stripe for membership upgrade');
         window.location.href = data.url;
       }
     } catch (err) {

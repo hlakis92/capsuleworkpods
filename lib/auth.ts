@@ -14,8 +14,8 @@ const getPlugins = () => {
   const expoClient = getExpoClient();
   return [
     expoClient({
-      scheme: "capsule",
-      storagePrefix: "capsule",
+      scheme: "capsuleworkpods",
+      storagePrefix: "capsuleworkpods",
       storage: SecureStore,
     }),
   ];

@@ -90,8 +90,10 @@ export default function BookingDetailPage() {
   }, [id, paymentStatus]);
 
   const handlePayment = async () => {
+    console.log('[BookingDetail] Proceed to payment pressed, booking id:', id);
     setProcessingPayment(true);
     try {
+      console.log('[BookingDetail] POST /api/checkout');
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -99,8 +101,10 @@ export default function BookingDetailPage() {
       });
       const data = await res.json();
       if (data.url) {
+        console.log('[BookingDetail] Redirecting to Stripe checkout');
         window.location.href = data.url;
       } else {
+        console.error('[BookingDetail] Checkout error:', data.error);
         setError(data.error || "Failed to create checkout session");
         setProcessingPayment(false);
       }

@@ -26,10 +26,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   ];
 
   const handleLogin = async () => {
+    console.log('[Layout] Sign in button pressed');
     await redirectToLogin();
   };
 
   const handleLogout = async () => {
+    console.log('[Layout] Sign out button pressed');
     await logout();
     setMobileMenuOpen(false);
   };
