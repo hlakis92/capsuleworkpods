@@ -1,0 +1,1 @@
+ALTER TABLE membership_settings DROP COLUMN monthly_price;

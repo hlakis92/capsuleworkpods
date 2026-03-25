@@ -1,0 +1,1 @@
+ALTER TABLE user_profiles ADD COLUMN is_admin BOOLEAN DEFAULT 0;
