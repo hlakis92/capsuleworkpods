@@ -1,10 +1,5 @@
-## Capsule WorkPods Booking
+# capsuleworkpods
 
-This app was created using https://getmocha.com.
-Need help or want to join the community? Join our [Discord](https://discord.gg/shDEGBSe2d).
+This app was built using [Newly.dev](https://newly.dev) - a platform for creating mobile apps.
 
-To run the devserver:
-```
-npm install
-npm run dev
-```
+Made with 💙 for creativity.
