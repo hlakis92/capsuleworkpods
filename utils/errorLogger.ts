@@ -73,14 +73,14 @@ const getLogServerUrl = (): string | null => {
         cachedLogServerUrl = `${baseUrl}/natively-logs`;
       } else {
         // Fallback: try to use manifest hostUri
-        const hostUri = Constants.expoConfig?.hostUri || (Constants as unknown as Record<string, { hostUri?: string }>).manifest?.hostUri;
+        const hostUri = Constants.expoConfig?.hostUri || (Constants as unknown as { manifest?: { hostUri?: string } }).manifest?.hostUri;
         if (hostUri) {
           const protocol = hostUri.includes('ngrok') || hostUri.includes('.io') ? 'https' : 'http';
           cachedLogServerUrl = `${protocol}://${hostUri.split('/')[0]}/natively-logs`;
         }
       }
     }
-  } catch {
+  } catch (_e) {
     // Silently fail
   }
 
@@ -117,11 +117,11 @@ const flushLogs = async () => {
           fetchErrorLogged = true;
           // Use a different method to avoid recursion - write directly without going through our intercept
           if (typeof window !== 'undefined' && window.console) {
-            Object.getPrototypeOf(window.console).log.call(console, '[Newly] Fetch error (will not repeat):', (e as Error).message || e);
+            (window.console as unknown as { __proto__: { log: (...a: unknown[]) => void } }).__proto__.log.call(console, '[Newly] Fetch error (will not repeat):', (e as Error).message || e);
           }
         }
       });
-    } catch {
+    } catch (_e) {
       // Silently ignore sync errors
     }
   }
@@ -176,7 +176,7 @@ const sendErrorToParent = (level: string, message: string, data: unknown) => {
         source: 'expo-template'
       }, '*');
     }
-  } catch {
+  } catch (_error) {
     // Silently fail
   }
 };
