@@ -147,9 +147,10 @@ app.get("/api/locations/:slug", async (c) => {
     SELECT * FROM pods WHERE location_id = ? ORDER BY name
   `).bind(location.id).all();
 
+  interface PodRow { amenities?: string; is_out_of_service?: number; [key: string]: unknown }
   return c.json({
     ...location,
-    pods: pods.results.map((pod: any) => ({
+    pods: pods.results.map((pod: PodRow) => ({
       ...pod,
       amenities: pod.amenities ? JSON.parse(pod.amenities) : [],
       is_out_of_service: Boolean(pod.is_out_of_service),
@@ -212,9 +213,10 @@ app.get("/api/pods/:id/availability", async (c) => {
     ORDER BY start_time
   `).bind(podId, startOfDay, endOfDay).all();
 
+  interface BookingSlot { start_time: string; end_time: string }
   return c.json({
     date,
-    booked_slots: bookings.results.map((b: any) => ({
+    booked_slots: bookings.results.map((b: BookingSlot) => ({
       start: b.start_time,
       end: b.end_time,
     })),
@@ -639,7 +641,8 @@ app.post("/api/webhooks/stripe", async (c) => {
 // ==================== ADMIN ENDPOINTS ====================
 
 // Admin middleware - checks if user is admin
-const adminMiddleware = async (c: any, next: any) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const adminMiddleware = async (c: any, next: () => Promise<void>) => {
   const user = c.get("user");
   if (!user) {
     return c.json({ error: "Unauthorized" }, 401);
@@ -867,8 +870,9 @@ app.get("/api/admin/bookings", authMiddleware, adminMiddleware, async (c) => {
   `).all();
 
   // Get user emails from user service
+  interface BookingRow { user_id: string; [key: string]: unknown }
   const bookingsWithEmails = await Promise.all(
-    (bookings.results || []).map(async (booking: any) => {
+    (bookings.results || []).map(async (booking: BookingRow) => {
       try {
         const userRes = await fetch(
           `${c.env.MOCHA_USERS_SERVICE_API_URL}/api/users/${booking.user_id}`,
@@ -878,7 +882,9 @@ app.get("/api/admin/bookings", authMiddleware, adminMiddleware, async (c) => {
           const userData = (await userRes.json()) as { email?: string };
           return { ...booking, user_email: userData.email };
         }
-      } catch {}
+      } catch (e) {
+        console.error("Failed to fetch user email:", e);
+      }
       return { ...booking, user_email: null };
     })
   );
@@ -1018,8 +1024,9 @@ app.get("/api/admin/members", authMiddleware, adminMiddleware, async (c) => {
     .all();
 
   // Fetch emails from Mocha users service
+  interface ProfileRow { user_id: string; [key: string]: unknown }
   const membersWithEmails = await Promise.all(
-    (profiles.results || []).map(async (profile: any) => {
+    (profiles.results || []).map(async (profile: ProfileRow) => {
       try {
         const userRes = await fetch(
           `${c.env.MOCHA_USERS_SERVICE_API_URL}/api/users/${profile.user_id}`,
@@ -1029,7 +1036,9 @@ app.get("/api/admin/members", authMiddleware, adminMiddleware, async (c) => {
           const userData = (await userRes.json()) as { email?: string };
           return { ...profile, email: userData.email || "Unknown" };
         }
-      } catch {}
+      } catch (e) {
+        console.error("Failed to fetch member email:", e);
+      }
       return { ...profile, email: "Unknown" };
     })
   );
@@ -1105,7 +1114,8 @@ app.get("/api/membership-discounts", async (c) => {
   const db = c.env.DB;
   const settings = await db.prepare("SELECT tier, discount_percent FROM membership_settings").all();
   const discounts: Record<string, number> = {};
-  (settings.results || []).forEach((s: any) => {
+  interface DiscountRow { tier: string; discount_percent: number }
+  (settings.results || []).forEach((s: DiscountRow) => {
     discounts[s.tier] = s.discount_percent;
   });
   return c.json(discounts);

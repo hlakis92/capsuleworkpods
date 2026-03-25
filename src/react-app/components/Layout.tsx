@@ -4,6 +4,15 @@ import { Button } from "@/react-app/components/ui/button";
 import { useState } from "react";
 import { useAuth } from "@getmocha/users-service/react";
 
+interface GoogleUserData {
+  picture?: string;
+  given_name?: string;
+}
+
+interface UserWithGoogle {
+  google_user_data?: GoogleUserData;
+}
+
 export default function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -68,9 +77,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               ) : user ? (
                 <div className="flex items-center gap-3">
                   <Link to="/profile" className="flex items-center gap-2 text-sm">
-                    {(user as any).google_user_data?.picture ? (
+                    {(user as UserWithGoogle).google_user_data?.picture ? (
                       <img
-                        src={(user as any).google_user_data.picture}
+                        src={(user as UserWithGoogle).google_user_data!.picture}
                         alt="Profile"
                         className="h-8 w-8 rounded-full object-cover"
                       />
@@ -80,7 +89,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                       </div>
                     )}
                     <span className="font-medium hidden lg:inline">
-                      {(user as any).google_user_data?.given_name || "User"}
+                      {(user as UserWithGoogle).google_user_data?.given_name || "User"}
                     </span>
                   </Link>
                   <Button variant="ghost" size="sm" onClick={handleLogout}>
@@ -135,9 +144,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 ) : user ? (
                   <div className="space-y-2">
                     <div className="flex items-center gap-3 px-3 py-2">
-                      {(user as any).google_user_data?.picture ? (
+                      {(user as UserWithGoogle).google_user_data?.picture ? (
                         <img
-                          src={(user as any).google_user_data.picture}
+                          src={(user as UserWithGoogle).google_user_data!.picture}
                           alt="Profile"
                           className="h-8 w-8 rounded-full object-cover"
                         />
@@ -147,7 +156,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                         </div>
                       )}
                       <span className="font-medium">
-                        {(user as any).google_user_data?.given_name || "User"}
+                        {(user as UserWithGoogle).google_user_data?.given_name || "User"}
                       </span>
                     </div>
                     <Button variant="outline" className="w-full gap-2" onClick={handleLogout}>

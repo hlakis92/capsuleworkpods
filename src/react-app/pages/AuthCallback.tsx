@@ -14,7 +14,7 @@ export default function AuthCallbackPage() {
       try {
         await exchangeCodeForSessionToken();
         navigate("/");
-      } catch (err) {
+      } catch {
         setError("Failed to complete sign in. Please try again.");
       }
     };

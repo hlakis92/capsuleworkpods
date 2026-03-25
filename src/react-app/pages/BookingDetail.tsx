@@ -86,6 +86,7 @@ export default function BookingDetailPage() {
       setTimeout(() => clearInterval(interval), 10000);
       return () => clearInterval(interval);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, paymentStatus]);
 
   const handlePayment = async () => {

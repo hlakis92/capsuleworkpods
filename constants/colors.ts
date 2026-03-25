@@ -1,0 +1,41 @@
+export const LIGHT_COLORS = {
+  background: '#F7F8FA',
+  surface: '#FFFFFF',
+  surfaceSecondary: '#EEF0F4',
+  text: '#0D1117',
+  textSecondary: '#5A6478',
+  textTertiary: '#9BA3B2',
+  primary: '#1A56DB',
+  primaryMuted: 'rgba(26,86,219,0.10)',
+  accent: '#10B981',
+  accentMuted: 'rgba(16,185,129,0.12)',
+  warning: '#F59E0B',
+  warningMuted: 'rgba(245,158,11,0.12)',
+  danger: '#EF4444',
+  dangerMuted: 'rgba(239,68,68,0.12)',
+  border: 'rgba(13,17,23,0.08)',
+  divider: 'rgba(13,17,23,0.05)',
+  cardShadow: '0 1px 3px rgba(13,17,23,0.06), 0 4px 12px rgba(13,17,23,0.04)',
+};
+
+export const DARK_COLORS = {
+  background: '#0D1117',
+  surface: '#161B22',
+  surfaceSecondary: '#21262D',
+  text: '#F0F6FC',
+  textSecondary: '#8B949E',
+  textTertiary: '#484F58',
+  primary: '#4D8EF5',
+  primaryMuted: 'rgba(77,142,245,0.15)',
+  accent: '#3DD68C',
+  accentMuted: 'rgba(61,214,140,0.15)',
+  warning: '#F0B429',
+  warningMuted: 'rgba(240,180,41,0.15)',
+  danger: '#F85149',
+  dangerMuted: 'rgba(248,81,73,0.15)',
+  border: 'rgba(240,246,252,0.10)',
+  divider: 'rgba(240,246,252,0.06)',
+  cardShadow: '0 1px 3px rgba(0,0,0,0.3), 0 4px 12px rgba(0,0,0,0.2)',
+};
+
+export type ColorScheme = typeof LIGHT_COLORS;

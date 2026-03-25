@@ -84,7 +84,7 @@ export default function AdminMemberships() {
         const statsData = await statsRes.json();
         setMemberStats(statsData.membersByTier || { free: 0, plus: 0, pro: 0 });
       }
-    } catch (err) {
+    } catch {
       setError("Failed to load membership settings");
     } finally {
       setLoading(false);
@@ -132,7 +132,7 @@ export default function AdminMemberships() {
       setSuccessMessage(`${setting.tier.charAt(0).toUpperCase() + setting.tier.slice(1)} tier updated successfully`);
       setTimeout(() => setSuccessMessage(null), 3000);
       fetchData();
-    } catch (err) {
+    } catch {
       setError("Failed to update settings");
     } finally {
       setSaving(null);

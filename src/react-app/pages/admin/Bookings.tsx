@@ -81,7 +81,7 @@ export default function AdminBookings() {
       if (!res.ok) throw new Error("Failed to fetch bookings");
       const data = await res.json();
       setBookings(data.bookings || []);
-    } catch (err) {
+    } catch {
       setError("Failed to load bookings");
     } finally {
       setLoading(false);
@@ -112,8 +112,8 @@ export default function AdminBookings() {
       }
       await fetchBookings();
       setCancelBooking(null);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to cancel booking");
     } finally {
       setCancelling(false);
     }
