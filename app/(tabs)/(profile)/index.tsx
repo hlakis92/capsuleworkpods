@@ -5,16 +5,16 @@ import {
   ScrollView,
   RefreshControl,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useColors } from '@/hooks/useColors';
 import { useAuth } from '@/contexts/AuthContext';
-import { apiGet } from '@/utils/api';
+import { capsuleGet, capsulePost } from '@/utils/capsuleApi';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { AuthGuard } from '@/components/AuthGuard';
 import { StatusBadge } from '@/components/StatusBadge';
 import { SkeletonLine } from '@/components/SkeletonLoader';
 import { AnimatedListItem } from '@/components/AnimatedListItem';
-import { LogOut, Crown, Star, Zap } from 'lucide-react-native';
+import { LogOut, Crown, Star, Zap, CalendarDays, ChevronRight } from 'lucide-react-native';
 
 interface MembershipTier {
   tier: string;
@@ -27,31 +27,39 @@ interface UserProfile {
   id: string;
   name: string;
   email: string;
+  picture?: string;
   membership_tier: string;
+}
+
+interface BookingStats {
+  total: number;
 }
 
 export default function ProfileScreen() {
   const COLORS = useColors();
   const router = useRouter();
+  const params = useLocalSearchParams<{ upgrade?: string; session_id?: string }>();
   const { user, loading: authLoading, signOut } = useAuth();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [tiers, setTiers] = useState<MembershipTier[]>([]);
+  const [bookingStats, setBookingStats] = useState<BookingStats>({ total: 0 });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [showTiers, setShowTiers] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!user) return;
-    console.log('[Profile] Fetching profile and membership tiers');
+    console.log('[Profile] Fetching profile, tiers, and booking stats');
     try {
-      const [profileData, tiersData] = await Promise.all([
-        apiGet<UserProfile>('/api/users/me'),
-        apiGet<{ tiers: MembershipTier[] }>('/api/membership-tiers'),
+      const [profileData, tiersData, bookingsData] = await Promise.all([
+        capsuleGet<UserProfile>('/api/users/me'),
+        capsuleGet<{ tiers: MembershipTier[] }>('/api/membership-tiers'),
+        capsuleGet<{ bookings: unknown[] }>('/api/bookings').catch(() => ({ bookings: [] })),
       ]);
       setProfile(profileData);
       setTiers(tiersData.tiers || []);
+      setBookingStats({ total: (bookingsData.bookings || []).length });
     } catch (e: unknown) {
       console.error('[Profile] Failed to fetch data:', e);
     } finally {
@@ -59,6 +67,19 @@ export default function ProfileScreen() {
       setRefreshing(false);
     }
   }, [user]);
+
+  // Handle upgrade return from Stripe
+  useEffect(() => {
+    if (params.upgrade === 'success' && params.session_id) {
+      console.log('[Profile] Upgrade success, verifying session:', params.session_id);
+      capsulePost('/api/membership/verify', { session_id: params.session_id })
+        .then(() => {
+          console.log('[Profile] Membership verified, refreshing profile');
+          fetchData();
+        })
+        .catch((e) => console.error('[Profile] Membership verify failed:', e));
+    }
+  }, [params.upgrade, params.session_id, fetchData]);
 
   useEffect(() => {
     if (user) fetchData();
@@ -90,6 +111,11 @@ export default function ProfileScreen() {
   const membershipTier = profile?.membership_tier || 'free';
   const currentTier = tiers.find((t) => t.tier === membershipTier);
 
+  const tierLabel = membershipTier === 'free' ? 'Free Plan' : membershipTier === 'plus' ? 'Plus Plan' : 'Pro Plan';
+  const discountText = currentTier && currentTier.discount_percent > 0
+    ? `${currentTier.discount_percent}% off all bookings`
+    : 'No booking discount';
+
   return (
     <AuthGuard user={user} loading={authLoading}>
       <ScrollView
@@ -116,13 +142,12 @@ export default function ProfileScreen() {
               gap: 12,
             }}
           >
-            {/* Avatar */}
             <View
               style={{
                 width: 80,
                 height: 80,
                 borderRadius: 40,
-                backgroundColor: COLORS.primary,
+                backgroundColor: '#1B2B4B',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
@@ -170,6 +195,30 @@ export default function ProfileScreen() {
                 <View style={{ marginTop: 4 }}>
                   <StatusBadge status={membershipTier} type="membership" />
                 </View>
+              </View>
+            )}
+
+            {/* Booking stats */}
+            {!loading && (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  backgroundColor: COLORS.surfaceSecondary,
+                  borderRadius: 12,
+                  padding: 12,
+                  width: '100%',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                }}
+              >
+                <CalendarDays size={16} color={COLORS.primary} />
+                <Text style={{ fontSize: 14, color: COLORS.text, fontFamily: 'DMSans_600SemiBold' }}>
+                  {bookingStats.total}
+                </Text>
+                <Text style={{ fontSize: 14, color: COLORS.textSecondary, fontFamily: 'DMSans_400Regular' }}>
+                  {bookingStats.total === 1 ? 'booking' : 'bookings'} total
+                </Text>
               </View>
             )}
           </View>
@@ -224,25 +273,17 @@ export default function ProfileScreen() {
                     fontFamily: 'DMSans_700Bold',
                   }}
                 >
-                  {membershipTier === 'free'
-                    ? 'Free Plan'
-                    : membershipTier === 'plus'
-                    ? 'Plus Plan'
-                    : 'Pro Plan'}
+                  {tierLabel}
                 </Text>
-                {currentTier ? (
-                  <Text
-                    style={{
-                      fontSize: 13,
-                      color: COLORS.textSecondary,
-                      fontFamily: 'DMSans_400Regular',
-                    }}
-                  >
-                    {currentTier.discount_percent > 0
-                      ? `${currentTier.discount_percent}% off all bookings`
-                      : 'No booking discount'}
-                  </Text>
-                ) : null}
+                <Text
+                  style={{
+                    fontSize: 13,
+                    color: COLORS.textSecondary,
+                    fontFamily: 'DMSans_400Regular',
+                  }}
+                >
+                  {discountText}
+                </Text>
               </View>
             </View>
 
@@ -263,10 +304,10 @@ export default function ProfileScreen() {
               <AnimatedPressable
                 onPress={() => {
                   console.log('[Profile] Upgrade membership pressed');
-                  setShowTiers(!showTiers);
+                  router.push('/membership');
                 }}
                 style={{
-                  backgroundColor: COLORS.primary,
+                  backgroundColor: '#1B2B4B',
                   borderRadius: 12,
                   paddingVertical: 13,
                   alignItems: 'center',
@@ -275,7 +316,7 @@ export default function ProfileScreen() {
                   gap: 8,
                 }}
               >
-                <Star size={16} color="#FFFFFF" />
+                <Star size={16} color="#F59E0B" />
                 <Text
                   style={{
                     color: '#FFFFFF',
@@ -291,104 +332,87 @@ export default function ProfileScreen() {
           </View>
         </AnimatedListItem>
 
-        {/* Membership tiers */}
-        {showTiers && tiers.length > 0 && (
-          <AnimatedListItem index={2}>
-            <View
+        {/* Quick actions */}
+        <AnimatedListItem index={2}>
+          <View
+            style={{
+              backgroundColor: COLORS.surface,
+              marginHorizontal: 16,
+              marginTop: 12,
+              borderRadius: 20,
+              borderWidth: 1,
+              borderColor: COLORS.border,
+              boxShadow: COLORS.cardShadow,
+              overflow: 'hidden',
+            }}
+          >
+            <AnimatedPressable
+              onPress={() => {
+                console.log('[Profile] My bookings pressed');
+                router.push('/(tabs)/(bookings)');
+              }}
               style={{
-                marginHorizontal: 16,
-                marginTop: 12,
-                gap: 10,
+                flexDirection: 'row',
+                alignItems: 'center',
+                padding: 16,
+                gap: 12,
               }}
             >
-              <Text
+              <View
                 style={{
-                  fontSize: 17,
-                  fontWeight: '700',
-                  color: COLORS.text,
-                  fontFamily: 'DMSans_700Bold',
-                  marginBottom: 4,
+                  width: 36,
+                  height: 36,
+                  borderRadius: 10,
+                  backgroundColor: COLORS.primaryMuted,
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
-                Available plans
+                <CalendarDays size={18} color={COLORS.primary} />
+              </View>
+              <Text style={{ flex: 1, fontSize: 15, color: COLORS.text, fontFamily: 'DMSans_500Medium' }}>
+                My bookings
               </Text>
-              {tiers.map((tier, index) => {
-                const isCurrent = tier.tier === membershipTier;
-                const priceStr = tier.monthly_price === 0
-                  ? 'Free'
-                  : `$${Number(tier.monthly_price).toFixed(0)}/mo`;
-                return (
-                  <AnimatedListItem key={tier.tier} index={index}>
-                    <View
-                      style={{
-                        backgroundColor: isCurrent ? COLORS.primaryMuted : COLORS.surface,
-                        borderRadius: 16,
-                        padding: 16,
-                        borderWidth: 1.5,
-                        borderColor: isCurrent ? COLORS.primary : COLORS.border,
-                        gap: 8,
-                      }}
-                    >
-                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                          <StatusBadge status={tier.tier} type="membership" />
-                          {isCurrent && (
-                            <Text style={{ fontSize: 12, color: COLORS.primary, fontFamily: 'DMSans_600SemiBold' }}>
-                              Current
-                            </Text>
-                          )}
-                        </View>
-                        <Text
-                          style={{
-                            fontSize: 17,
-                            fontWeight: '800',
-                            color: COLORS.text,
-                            fontFamily: 'DMSans_700Bold',
-                          }}
-                        >
-                          {priceStr}
-                        </Text>
-                      </View>
-                      <Text
-                        style={{
-                          fontSize: 13,
-                          color: COLORS.textSecondary,
-                          fontFamily: 'DMSans_400Regular',
-                          lineHeight: 18,
-                        }}
-                      >
-                        {tier.description}
-                      </Text>
-                      {tier.discount_percent > 0 && (
-                        <View
-                          style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            gap: 6,
-                            backgroundColor: COLORS.accentMuted,
-                            borderRadius: 8,
-                            paddingHorizontal: 10,
-                            paddingVertical: 5,
-                            alignSelf: 'flex-start',
-                          }}
-                        >
-                          <Zap size={13} color={COLORS.accent} />
-                          <Text style={{ fontSize: 12, color: COLORS.accent, fontFamily: 'DMSans_600SemiBold' }}>
-                            {tier.discount_percent}% off all bookings
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                  </AnimatedListItem>
-                );
-              })}
-            </View>
-          </AnimatedListItem>
-        )}
+              <ChevronRight size={18} color={COLORS.textTertiary} />
+            </AnimatedPressable>
+
+            <View style={{ height: 1, backgroundColor: COLORS.divider, marginLeft: 64 }} />
+
+            <AnimatedPressable
+              onPress={() => {
+                console.log('[Profile] Membership plans pressed');
+                router.push('/membership');
+              }}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                padding: 16,
+                gap: 12,
+              }}
+            >
+              <View
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 10,
+                  backgroundColor: 'rgba(245,158,11,0.12)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Zap size={18} color="#B45309" />
+              </View>
+              <Text style={{ flex: 1, fontSize: 15, color: COLORS.text, fontFamily: 'DMSans_500Medium' }}>
+                Membership plans
+              </Text>
+              <ChevronRight size={18} color={COLORS.textTertiary} />
+            </AnimatedPressable>
+          </View>
+        </AnimatedListItem>
 
         {/* Sign out */}
         <AnimatedListItem index={3}>
-          <View style={{ marginHorizontal: 16, marginTop: 20 }}>
+          <View style={{ marginHorizontal: 16, marginTop: 12 }}>
             <AnimatedPressable
               onPress={handleSignOut}
               disabled={signingOut}
@@ -417,7 +441,6 @@ export default function ProfileScreen() {
           </View>
         </AnimatedListItem>
 
-        {/* App version */}
         <View style={{ alignItems: 'center', marginTop: 32, paddingBottom: 8 }}>
           <Text
             style={{
@@ -426,7 +449,7 @@ export default function ProfileScreen() {
               fontFamily: 'DMSans_400Regular',
             }}
           >
-            Capsule v1.0.0
+            Capsule WorkPods v1.0.0
           </Text>
         </View>
       </ScrollView>

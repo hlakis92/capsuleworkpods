@@ -7,9 +7,9 @@ export default function TabLayoutIOS() {
         <Icon sf="safari" />
         <Label>Explore</Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="(locations)">
+      <NativeTabs.Trigger name="(nearby)">
         <Icon sf="mappin.and.ellipse" />
-        <Label>Locations</Label>
+        <Label>Near Me</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="(bookings)">
         <Icon sf="calendar" />

@@ -9,7 +9,7 @@ import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { useColors } from '@/hooks/useColors';
 import { useAuth } from '@/contexts/AuthContext';
-import { apiGet } from '@/utils/api';
+import { capsuleGet } from '@/utils/capsuleApi';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { AnimatedListItem } from '@/components/AnimatedListItem';
 import { SkeletonBookingCard } from '@/components/SkeletonLoader';
@@ -80,9 +80,9 @@ export default function BookingsScreen() {
 
   const fetchBookings = useCallback(async () => {
     if (!user) return;
-    console.log('[Bookings] Fetching bookings');
+    console.log('[Bookings] Fetching bookings from capsuleworkpods.com');
     try {
-      const data = await apiGet<{ bookings: Booking[] }>('/api/bookings');
+      const data = await capsuleGet<{ bookings: Booking[] }>('/api/bookings');
       setBookings(data.bookings || []);
       setError('');
     } catch (e: unknown) {
@@ -125,7 +125,7 @@ export default function BookingsScreen() {
         <AnimatedPressable
           onPress={() => {
             console.log('[Bookings] Booking card pressed:', item.id);
-            router.push(`/(tabs)/booking/${item.id}`);
+            router.push(`/booking/${item.id}`);
           }}
           style={{
             backgroundColor: COLORS.surface,

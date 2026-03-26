@@ -10,11 +10,11 @@ import { useLocalSearchParams, Stack } from 'expo-router';
 import { Image } from 'expo-image';
 import * as Linking from 'expo-linking';
 import { useColors } from '@/hooks/useColors';
-import { apiGet, apiPost } from '@/utils/api';
+import { capsuleGet, capsulePost } from '@/utils/capsuleApi';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
 import { StatusBadge } from '@/components/StatusBadge';
-import { MapPin, Calendar, Clock, CreditCard, QrCode } from 'lucide-react-native';
+import { MapPin, Calendar, Clock, CreditCard, CheckCircle, XCircle, AlertCircle } from 'lucide-react-native';
 
 interface BookingDetail {
   id: string;
@@ -74,16 +74,16 @@ function formatBookingTime(startIso: string, endIso: string): string {
 function getDurationHours(startIso: string, endIso: string): number {
   try {
     const diff = new Date(endIso).getTime() - new Date(startIso).getTime();
-    return Math.round(diff / (1000 * 60 * 60));
+    return Math.round((diff / (1000 * 60 * 60)) * 10) / 10;
   } catch {
     return 0;
   }
 }
 
 export default function BookingDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id } = useLocalSearchParams<{ id: string; payment?: string }>();
+  const params = useLocalSearchParams<{ payment?: string }>();
   const COLORS = useColors();
-
 
   const [booking, setBooking] = useState<BookingDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -95,7 +95,7 @@ export default function BookingDetailScreen() {
     if (!id) return;
     console.log('[BookingDetail] Fetching booking:', id);
     try {
-      const data = await apiGet<BookingDetail>(`/api/bookings/${id}`);
+      const data = await capsuleGet<BookingDetail>(`/api/bookings/${id}`);
       setBooking(data);
       setError('');
     } catch (e: unknown) {
@@ -111,6 +111,16 @@ export default function BookingDetailScreen() {
     fetchBooking();
   }, [fetchBooking]);
 
+  // Handle payment return
+  useEffect(() => {
+    if (params.payment === 'success') {
+      console.log('[BookingDetail] Payment success return, refreshing booking');
+      fetchBooking();
+    } else if (params.payment === 'cancelled') {
+      console.log('[BookingDetail] Payment cancelled return');
+    }
+  }, [params.payment, fetchBooking]);
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchBooking();
@@ -121,7 +131,7 @@ export default function BookingDetailScreen() {
     console.log('[BookingDetail] Pay Now pressed for booking:', booking.id);
     setPayLoading(true);
     try {
-      const data = await apiPost<{ checkout_url: string }>('/api/checkout', {
+      const data = await capsulePost<{ checkout_url: string }>('/api/checkout', {
         booking_id: booking.id,
       });
       if (data.checkout_url) {
@@ -146,10 +156,39 @@ export default function BookingDetailScreen() {
   const discountStr = discountPct > 0 ? `-$${discountAmt.toFixed(2)}` : null;
   const finalPriceStr = booking ? `$${Number(booking.price_final).toFixed(2)}` : '';
 
-  const showQR = booking?.status === 'confirmed' && booking?.payment_status === 'paid' && booking?.qr_token;
+  const accessCode = booking?.qr_token ? String(booking.qr_token).split('-')[0].toUpperCase() : '';
+  const showQR = booking?.status === 'confirmed' && booking?.qr_token;
   const showPayButton = booking?.payment_status === 'unpaid' && booking?.status !== 'cancelled';
 
   const podName = booking?.pod?.name ?? 'Booking Details';
+
+  const statusBannerBg = booking?.status === 'confirmed'
+    ? COLORS.accentMuted
+    : booking?.status === 'pending'
+    ? COLORS.warningMuted
+    : booking?.status === 'cancelled'
+    ? COLORS.dangerMuted
+    : COLORS.surfaceSecondary;
+
+  const StatusIcon = booking?.status === 'confirmed'
+    ? CheckCircle
+    : booking?.status === 'cancelled'
+    ? XCircle
+    : AlertCircle;
+
+  const statusIconColor = booking?.status === 'confirmed'
+    ? COLORS.accent
+    : booking?.status === 'cancelled'
+    ? COLORS.danger
+    : COLORS.warning;
+
+  const statusLabel = booking?.status === 'confirmed'
+    ? 'Booking Confirmed'
+    : booking?.status === 'pending'
+    ? 'Awaiting Payment'
+    : booking?.status === 'cancelled'
+    ? 'Booking Cancelled'
+    : String(booking?.status ?? '');
 
   return (
     <>
@@ -206,18 +245,11 @@ export default function BookingDetailScreen() {
             </AnimatedPressable>
           </View>
         ) : (
-          <View style={{ gap: 0 }}>
-            {/* Status header */}
+          <View>
+            {/* Status banner */}
             <View
               style={{
-                backgroundColor:
-                  booking?.status === 'confirmed'
-                    ? COLORS.accentMuted
-                    : booking?.status === 'pending'
-                    ? COLORS.warningMuted
-                    : booking?.status === 'cancelled'
-                    ? COLORS.dangerMuted
-                    : COLORS.surfaceSecondary,
+                backgroundColor: statusBannerBg,
                 padding: 16,
                 paddingHorizontal: 20,
                 flexDirection: 'row',
@@ -225,8 +257,16 @@ export default function BookingDetailScreen() {
                 gap: 12,
               }}
             >
-              <StatusBadge status={booking?.status ?? 'pending'} type="booking" />
-              <StatusBadge status={booking?.payment_status ?? 'unpaid'} type="payment" />
+              <StatusIcon size={20} color={statusIconColor} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: COLORS.text, fontFamily: 'DMSans_700Bold' }}>
+                  {statusLabel}
+                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 }}>
+                  <StatusBadge status={booking?.status ?? 'pending'} type="booking" />
+                  <StatusBadge status={booking?.payment_status ?? 'unpaid'} type="payment" />
+                </View>
+              </View>
             </View>
 
             {/* Pod image */}
@@ -348,7 +388,9 @@ export default function BookingDetailScreen() {
                 {discountStr && (
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                     <Text style={{ fontSize: 14, color: COLORS.accent, fontFamily: 'DMSans_500Medium' }}>
-                      Membership discount ({discountPct}%)
+                      Membership discount (
+                      {discountPct}
+                      %)
                     </Text>
                     <Text style={{ fontSize: 14, color: COLORS.accent, fontFamily: 'DMSans_600SemiBold' }}>
                       {discountStr}
@@ -366,7 +408,7 @@ export default function BookingDetailScreen() {
                 </View>
               </View>
 
-              {/* QR Code */}
+              {/* QR Code / Access Code */}
               {showQR && (
                 <View
                   style={{
@@ -376,42 +418,58 @@ export default function BookingDetailScreen() {
                     borderWidth: 1,
                     borderColor: COLORS.border,
                     alignItems: 'center',
-                    gap: 12,
+                    gap: 16,
                   }}
                 >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <QrCode size={20} color={COLORS.primary} />
-                    <Text style={{ fontSize: 15, fontWeight: '700', color: COLORS.text, fontFamily: 'DMSans_700Bold' }}>
-                      Entry QR Code
-                    </Text>
-                  </View>
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: COLORS.text, fontFamily: 'DMSans_700Bold' }}>
+                    Entry Access Code
+                  </Text>
                   <View
                     style={{
-                      borderWidth: 2,
-                      borderColor: COLORS.border,
-                      borderRadius: 12,
-                      padding: 20,
-                      backgroundColor: COLORS.background,
+                      backgroundColor: '#1B2B4B',
+                      borderRadius: 16,
+                      padding: 24,
+                      alignItems: 'center',
+                      width: '100%',
                     }}
                   >
                     <Text
                       style={{
-                        fontSize: 13,
+                        fontSize: 32,
+                        fontWeight: '800',
+                        color: '#FFFFFF',
                         fontFamily: 'DMSans_700Bold',
-                        color: COLORS.text,
-                        letterSpacing: 2,
+                        letterSpacing: 6,
                         textAlign: 'center',
                       }}
                       selectable
                     >
-                      {String(booking?.qr_token ?? '').toUpperCase()}
+                      {accessCode}
                     </Text>
                   </View>
                   <Text style={{ fontSize: 12, color: COLORS.textTertiary, fontFamily: 'DMSans_400Regular', textAlign: 'center' }}>
                     Show this code at the pod entrance
                   </Text>
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      color: COLORS.textTertiary,
+                      fontFamily: 'DMSans_400Regular',
+                      textAlign: 'center',
+                    }}
+                    selectable
+                  >
+                    Token: {String(booking?.qr_token ?? '')}
+                  </Text>
                 </View>
               )}
+
+              {/* Booking ID */}
+              <View style={{ alignItems: 'center' }}>
+                <Text style={{ fontSize: 12, color: COLORS.textTertiary, fontFamily: 'DMSans_400Regular' }} selectable>
+                  Booking ID: {String(booking?.id ?? '').slice(0, 8).toUpperCase()}
+                </Text>
+              </View>
             </View>
           </View>
         )}
@@ -436,7 +494,7 @@ export default function BookingDetailScreen() {
             onPress={handlePayNow}
             disabled={payLoading}
             style={{
-              backgroundColor: COLORS.primary,
+              backgroundColor: '#1B2B4B',
               borderRadius: 16,
               paddingVertical: 18,
               alignItems: 'center',
@@ -451,7 +509,7 @@ export default function BookingDetailScreen() {
               <>
                 <CreditCard size={20} color="#FFFFFF" />
                 <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: '700', fontFamily: 'DMSans_700Bold' }}>
-                  Pay now
+                  Complete payment
                 </Text>
               </>
             )}

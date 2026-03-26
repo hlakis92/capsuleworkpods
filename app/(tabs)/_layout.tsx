@@ -39,9 +39,9 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="(locations)"
+        name="(nearby)"
         options={{
-          title: 'Locations',
+          title: 'Near Me',
           tabBarIcon: ({ focused, color }) => <TabBarIcon Icon={MapPin} focused={focused} color={color} />,
         }}
       />
@@ -59,10 +59,6 @@ export default function TabLayout() {
           tabBarIcon: ({ focused, color }) => <TabBarIcon Icon={User} focused={focused} color={color} />,
         }}
       />
-      <Tabs.Screen name="location" options={{ href: null }} />
-      <Tabs.Screen name="pod" options={{ href: null }} />
-      <Tabs.Screen name="booking" options={{ href: null }} />
-      <Tabs.Screen name="booking-wizard" options={{ href: null }} />
     </Tabs>
   );
 }

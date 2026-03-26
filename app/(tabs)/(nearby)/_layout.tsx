@@ -1,7 +1,7 @@
 import { Stack } from 'expo-router';
 import { useColors } from '@/hooks/useColors';
 
-export default function BookingLayout() {
+export default function NearbyLayout() {
   const COLORS = useColors();
   return (
     <Stack
@@ -12,7 +12,7 @@ export default function BookingLayout() {
         headerShadowVisible: false,
       }}
     >
-      <Stack.Screen name="[id]" options={{ title: 'Booking Details' }} />
+      <Stack.Screen name="index" options={{ title: 'Near Me' }} />
     </Stack>
   );
 }

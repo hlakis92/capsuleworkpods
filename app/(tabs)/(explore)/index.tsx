@@ -12,11 +12,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useColors } from '@/hooks/useColors';
 import { useAuth } from '@/contexts/AuthContext';
-import { apiGet } from '@/utils/api';
+import { capsuleGet } from '@/utils/capsuleApi';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { AnimatedListItem } from '@/components/AnimatedListItem';
 import { SkeletonCard } from '@/components/SkeletonLoader';
-import { MapPin, ChevronRight } from 'lucide-react-native';
+import { MapPin, ChevronRight, Layers } from 'lucide-react-native';
 
 interface Location {
   id: string;
@@ -51,9 +51,9 @@ export default function ExploreScreen() {
   const heroOpacity = useRef(new Animated.Value(0)).current;
 
   const fetchData = useCallback(async () => {
-    console.log('[Explore] Fetching locations');
+    console.log('[Explore] Fetching locations from capsuleworkpods.com');
     try {
-      const data = await apiGet<{ locations: Location[] }>('/api/locations');
+      const data = await capsuleGet<{ locations: Location[] }>('/api/locations');
       setLocations(data.locations || []);
       setError('');
       Animated.timing(heroOpacity, { toValue: 1, duration: 400, useNativeDriver: true }).start();
@@ -76,8 +76,10 @@ export default function ExploreScreen() {
     fetchData();
   }, [fetchData]);
 
-  const featuredLocations = locations.slice(0, 5);
-  const nearbyLocations = locations.slice(0, 8);
+  const featuredLocation = locations[0];
+  const otherLocations = locations.slice(1);
+
+  const initials = user ? (user.name || user.email || 'U').charAt(0).toUpperCase() : '';
 
   return (
     <ScrollView
@@ -93,38 +95,30 @@ export default function ExploreScreen() {
       }
     >
       {/* Hero Banner */}
-      <View style={{ height: 280, position: 'relative' }}>
+      <View style={{ height: 300, position: 'relative' }}>
         <Image
-          source={resolveImageSource(locations[0]?.image_url)}
+          source={resolveImageSource(featuredLocation?.image_url)}
           style={{ width: '100%', height: '100%' }}
           contentFit="cover"
         />
         <LinearGradient
-          colors={['transparent', 'rgba(13,17,23,0.85)']}
-          style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 160 }}
+          colors={['rgba(27,43,75,0.5)', 'transparent', 'rgba(13,17,23,0.9)']}
+          style={{ position: 'absolute', inset: 0 }}
         />
+
+        {/* Top bar */}
         <View
           style={{
             position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            padding: 20,
-            paddingTop: insets.top + 16,
+            top: insets.top + 12,
+            left: 20,
+            right: 20,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
           }}
         >
-          {/* Top bar */}
-          <View
-            style={{
-              position: 'absolute',
-              top: insets.top + 12,
-              left: 20,
-              right: 20,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
+          <View>
             <Text
               style={{
                 fontSize: 22,
@@ -136,59 +130,157 @@ export default function ExploreScreen() {
             >
               Capsule
             </Text>
-            {user && (
-              <View
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 18,
-                  backgroundColor: COLORS.primary,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Text style={{ color: '#FFF', fontSize: 14, fontWeight: '700', fontFamily: 'DMSans_700Bold' }}>
-                  {(user.name || user.email || 'U').charAt(0).toUpperCase()}
-                </Text>
-              </View>
-            )}
+            <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', fontFamily: 'DMSans_400Regular' }}>
+              WorkPods
+            </Text>
           </View>
+          {user && (
+            <View
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 19,
+                backgroundColor: '#1B2B4B',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderWidth: 2,
+                borderColor: 'rgba(255,255,255,0.3)',
+              }}
+            >
+              <Text style={{ color: '#FFF', fontSize: 15, fontWeight: '700', fontFamily: 'DMSans_700Bold' }}>
+                {initials}
+              </Text>
+            </View>
+          )}
+        </View>
 
+        {/* Hero text */}
+        <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 20 }}>
           <Text
             style={{
-              fontSize: 28,
+              fontSize: 30,
               fontWeight: '800',
               color: '#FFFFFF',
               fontFamily: 'DMSans_700Bold',
-              letterSpacing: -0.5,
+              letterSpacing: -0.8,
               marginBottom: 4,
             }}
           >
-            Find your capsule
+            Work Anywhere{'\n'}in Minnesota
           </Text>
           <Text
             style={{
-              fontSize: 15,
-              color: 'rgba(255,255,255,0.75)',
+              fontSize: 14,
+              color: 'rgba(255,255,255,0.72)',
               fontFamily: 'DMSans_400Regular',
             }}
           >
-            Private pods across Minnesota
+            Private capsule pods for focused work
           </Text>
         </View>
       </View>
 
-      {/* Featured Locations */}
-      <View style={{ marginTop: 24 }}>
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            paddingHorizontal: 20,
-            marginBottom: 14,
-          }}
-        >
+      {/* Featured location hero card */}
+      {!loading && featuredLocation && (
+        <View style={{ paddingHorizontal: 16, marginTop: 20 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <Text
+              style={{
+                fontSize: 19,
+                fontWeight: '700',
+                color: COLORS.text,
+                fontFamily: 'DMSans_700Bold',
+                letterSpacing: -0.3,
+              }}
+            >
+              Featured
+            </Text>
+          </View>
+          <AnimatedListItem index={0}>
+            <AnimatedPressable
+              onPress={() => {
+                console.log('[Explore] Featured location pressed:', featuredLocation.slug);
+                router.push(`/location/${featuredLocation.slug}`);
+              }}
+              style={{
+                backgroundColor: COLORS.surface,
+                borderRadius: 20,
+                overflow: 'hidden',
+                borderWidth: 1,
+                borderColor: COLORS.border,
+                boxShadow: COLORS.cardShadow,
+              }}
+            >
+              <View style={{ height: 180, position: 'relative' }}>
+                <Image
+                  source={resolveImageSource(featuredLocation.image_url)}
+                  style={{ width: '100%', height: '100%' }}
+                  contentFit="cover"
+                />
+                <LinearGradient
+                  colors={['transparent', 'rgba(13,17,23,0.7)']}
+                  style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 100 }}
+                />
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: 12,
+                    right: 12,
+                    backgroundColor: featuredLocation.available_pod_count > 0 ? COLORS.accentMuted : COLORS.dangerMuted,
+                    borderRadius: 8,
+                    paddingHorizontal: 10,
+                    paddingVertical: 5,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      fontWeight: '600',
+                      color: featuredLocation.available_pod_count > 0 ? COLORS.accent : COLORS.danger,
+                      fontFamily: 'DMSans_600SemiBold',
+                    }}
+                  >
+                    {featuredLocation.available_pod_count > 0 ? `${featuredLocation.available_pod_count} available` : 'Full'}
+                  </Text>
+                </View>
+              </View>
+              <View style={{ padding: 16, gap: 6 }}>
+                <Text
+                  style={{
+                    fontSize: 18,
+                    fontWeight: '700',
+                    color: COLORS.text,
+                    fontFamily: 'DMSans_700Bold',
+                    letterSpacing: -0.3,
+                  }}
+                >
+                  {featuredLocation.name}
+                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <MapPin size={13} color={COLORS.textTertiary} />
+                    <Text style={{ fontSize: 13, color: COLORS.textSecondary, fontFamily: 'DMSans_400Regular' }}>
+                      {featuredLocation.city}
+                      {featuredLocation.state ? `, ${featuredLocation.state}` : ''}
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Layers size={13} color={COLORS.textTertiary} />
+                    <Text style={{ fontSize: 13, color: COLORS.textSecondary, fontFamily: 'DMSans_400Regular' }}>
+                      {featuredLocation.pod_count ?? 0}
+                      {' pods'}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </AnimatedPressable>
+          </AnimatedListItem>
+        </View>
+      )}
+
+      {/* All Locations */}
+      <View style={{ marginTop: 28, paddingHorizontal: 16 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
           <Text
             style={{
               fontSize: 19,
@@ -198,131 +290,12 @@ export default function ExploreScreen() {
               letterSpacing: -0.3,
             }}
           >
-            Featured Locations
+            All Locations
           </Text>
-          <AnimatedPressable
-            onPress={() => {
-              console.log('[Explore] View all locations pressed');
-              router.push('/(tabs)/(locations)');
-            }}
-          >
-            <Text style={{ fontSize: 14, color: COLORS.primary, fontFamily: 'DMSans_600SemiBold' }}>
-              View all
-            </Text>
-          </AnimatedPressable>
+          <Text style={{ fontSize: 13, color: COLORS.textTertiary, fontFamily: 'DMSans_400Regular' }}>
+            {loading ? '' : `${locations.length} locations`}
+          </Text>
         </View>
-
-        {loading ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}>
-            {[0, 1, 2].map((i) => (
-              <View key={i} style={{ width: 220 }}>
-                <SkeletonCard />
-              </View>
-            ))}
-          </ScrollView>
-        ) : (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}
-          >
-            {featuredLocations.map((loc, index) => {
-              const availableText = `${loc.available_pod_count ?? 0} available`;
-              return (
-                <AnimatedListItem key={loc.id} index={index}>
-                  <AnimatedPressable
-                    onPress={() => {
-                      console.log('[Explore] Location card pressed:', loc.slug);
-                      router.push(`/(tabs)/location/${loc.slug}`);
-                    }}
-                    style={{
-                      width: 220,
-                      backgroundColor: COLORS.surface,
-                      borderRadius: 16,
-                      overflow: 'hidden',
-                      borderWidth: 1,
-                      borderColor: COLORS.border,
-                      boxShadow: COLORS.cardShadow,
-                    }}
-                  >
-                    <View style={{ height: 130, position: 'relative' }}>
-                      <Image
-                        source={resolveImageSource(loc.image_url)}
-                        style={{ width: '100%', height: '100%' }}
-                        contentFit="cover"
-                      />
-                      <View
-                        style={{
-                          position: 'absolute',
-                          top: 10,
-                          right: 10,
-                          backgroundColor: loc.available_pod_count > 0 ? COLORS.accentMuted : COLORS.dangerMuted,
-                          borderRadius: 8,
-                          paddingHorizontal: 8,
-                          paddingVertical: 4,
-                        }}
-                      >
-                        <Text
-                          style={{
-                            fontSize: 11,
-                            fontWeight: '600',
-                            color: loc.available_pod_count > 0 ? COLORS.accent : COLORS.danger,
-                            fontFamily: 'DMSans_600SemiBold',
-                          }}
-                        >
-                          {availableText}
-                        </Text>
-                      </View>
-                    </View>
-                    <View style={{ padding: 12, gap: 4 }}>
-                      <Text
-                        style={{
-                          fontSize: 15,
-                          fontWeight: '700',
-                          color: COLORS.text,
-                          fontFamily: 'DMSans_700Bold',
-                        }}
-                        numberOfLines={1}
-                      >
-                        {loc.name}
-                      </Text>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        <MapPin size={12} color={COLORS.textTertiary} />
-                        <Text
-                          style={{
-                            fontSize: 12,
-                            color: COLORS.textSecondary,
-                            fontFamily: 'DMSans_400Regular',
-                          }}
-                          numberOfLines={1}
-                        >
-                          {loc.city}
-                          {loc.state ? `, ${loc.state}` : ''}
-                        </Text>
-                      </View>
-                    </View>
-                  </AnimatedPressable>
-                </AnimatedListItem>
-              );
-            })}
-          </ScrollView>
-        )}
-      </View>
-
-      {/* Nearby Pods */}
-      <View style={{ marginTop: 32, paddingHorizontal: 20 }}>
-        <Text
-          style={{
-            fontSize: 19,
-            fontWeight: '700',
-            color: COLORS.text,
-            fontFamily: 'DMSans_700Bold',
-            letterSpacing: -0.3,
-            marginBottom: 14,
-          }}
-        >
-          All Locations
-        </Text>
 
         {loading ? (
           <View style={{ gap: 12 }}>
@@ -367,15 +340,16 @@ export default function ExploreScreen() {
           </View>
         ) : (
           <View style={{ gap: 12 }}>
-            {nearbyLocations.map((loc, index) => {
+            {otherLocations.map((loc, index) => {
               const podCountText = `${loc.pod_count ?? 0} pods`;
               const availableText = `${loc.available_pod_count ?? 0} available`;
+              const isAvailable = (loc.available_pod_count ?? 0) > 0;
               return (
-                <AnimatedListItem key={loc.id} index={index}>
+                <AnimatedListItem key={loc.id} index={index + 1}>
                   <AnimatedPressable
                     onPress={() => {
-                      console.log('[Explore] Nearby location pressed:', loc.slug);
-                      router.push(`/(tabs)/location/${loc.slug}`);
+                      console.log('[Explore] Location card pressed:', loc.slug);
+                      router.push(`/location/${loc.slug}`);
                     }}
                     style={{
                       backgroundColor: COLORS.surface,
@@ -384,75 +358,75 @@ export default function ExploreScreen() {
                       borderWidth: 1,
                       borderColor: COLORS.border,
                       boxShadow: COLORS.cardShadow,
+                      flexDirection: 'row',
                     }}
                   >
-                    <View style={{ flexDirection: 'row' }}>
-                      <Image
-                        source={resolveImageSource(loc.image_url)}
-                        style={{ width: 100, height: 100 }}
-                        contentFit="cover"
-                      />
-                      <View style={{ flex: 1, padding: 14, gap: 4, justifyContent: 'center' }}>
+                    <Image
+                      source={resolveImageSource(loc.image_url)}
+                      style={{ width: 100, height: 100 }}
+                      contentFit="cover"
+                    />
+                    <View style={{ flex: 1, padding: 14, gap: 4, justifyContent: 'center' }}>
+                      <Text
+                        style={{
+                          fontSize: 15,
+                          fontWeight: '700',
+                          color: COLORS.text,
+                          fontFamily: 'DMSans_700Bold',
+                        }}
+                        numberOfLines={1}
+                      >
+                        {loc.name}
+                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        <MapPin size={12} color={COLORS.textTertiary} />
                         <Text
                           style={{
-                            fontSize: 15,
-                            fontWeight: '700',
-                            color: COLORS.text,
-                            fontFamily: 'DMSans_700Bold',
+                            fontSize: 12,
+                            color: COLORS.textSecondary,
+                            fontFamily: 'DMSans_400Regular',
                           }}
                           numberOfLines={1}
                         >
-                          {loc.name}
+                          {loc.city}
+                          {loc.state ? `, ${loc.state}` : ''}
                         </Text>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                          <MapPin size={12} color={COLORS.textTertiary} />
-                          <Text
-                            style={{
-                              fontSize: 12,
-                              color: COLORS.textSecondary,
-                              fontFamily: 'DMSans_400Regular',
-                            }}
-                            numberOfLines={1}
-                          >
-                            {loc.address}
+                      </View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                        <View
+                          style={{
+                            backgroundColor: COLORS.surfaceSecondary,
+                            borderRadius: 6,
+                            paddingHorizontal: 8,
+                            paddingVertical: 3,
+                          }}
+                        >
+                          <Text style={{ fontSize: 11, color: COLORS.textSecondary, fontFamily: 'DMSans_500Medium' }}>
+                            {podCountText}
                           </Text>
                         </View>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                          <View
+                        <View
+                          style={{
+                            backgroundColor: isAvailable ? COLORS.accentMuted : COLORS.dangerMuted,
+                            borderRadius: 6,
+                            paddingHorizontal: 8,
+                            paddingVertical: 3,
+                          }}
+                        >
+                          <Text
                             style={{
-                              backgroundColor: COLORS.surfaceSecondary,
-                              borderRadius: 6,
-                              paddingHorizontal: 8,
-                              paddingVertical: 3,
+                              fontSize: 11,
+                              color: isAvailable ? COLORS.accent : COLORS.danger,
+                              fontFamily: 'DMSans_500Medium',
                             }}
                           >
-                            <Text style={{ fontSize: 11, color: COLORS.textSecondary, fontFamily: 'DMSans_500Medium' }}>
-                              {podCountText}
-                            </Text>
-                          </View>
-                          <View
-                            style={{
-                              backgroundColor: loc.available_pod_count > 0 ? COLORS.accentMuted : COLORS.dangerMuted,
-                              borderRadius: 6,
-                              paddingHorizontal: 8,
-                              paddingVertical: 3,
-                            }}
-                          >
-                            <Text
-                              style={{
-                                fontSize: 11,
-                                color: loc.available_pod_count > 0 ? COLORS.accent : COLORS.danger,
-                                fontFamily: 'DMSans_500Medium',
-                              }}
-                            >
-                              {availableText}
-                            </Text>
-                          </View>
+                            {availableText}
+                          </Text>
                         </View>
                       </View>
-                      <View style={{ justifyContent: 'center', paddingRight: 14 }}>
-                        <ChevronRight size={18} color={COLORS.textTertiary} />
-                      </View>
+                    </View>
+                    <View style={{ justifyContent: 'center', paddingRight: 14 }}>
+                      <ChevronRight size={18} color={COLORS.textTertiary} />
                     </View>
                   </AnimatedPressable>
                 </AnimatedListItem>

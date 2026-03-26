@@ -46,6 +46,17 @@ export default function RootLayout() {
               <Stack.Screen name="auth-screen" options={{ headerShown: false, presentation: 'modal' }} />
               <Stack.Screen name="auth-popup" options={{ headerShown: false }} />
               <Stack.Screen name="auth-callback" options={{ headerShown: false }} />
+              <Stack.Screen name="location" options={{ headerShown: false }} />
+              <Stack.Screen name="pod" options={{ headerShown: false }} />
+              <Stack.Screen name="booking" options={{ headerShown: false }} />
+              <Stack.Screen
+                name="membership"
+                options={{
+                  headerShown: true,
+                  title: 'Membership Plans',
+                  presentation: 'modal',
+                }}
+              />
             </Stack>
           </AuthProvider>
         </ThemeProvider>

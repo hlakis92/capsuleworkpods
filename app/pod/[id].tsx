@@ -9,7 +9,7 @@ import {
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Image } from 'expo-image';
 import { useColors } from '@/hooks/useColors';
-import { apiGet } from '@/utils/api';
+import { capsuleGet } from '@/utils/capsuleApi';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -20,7 +20,7 @@ interface PodDetail {
   name: string;
   type: string;
   price_per_hour: number;
-  amenities: string[];
+  amenities: string | string[];
   image_url: string;
   is_out_of_service: boolean;
   location: {
@@ -39,6 +39,17 @@ function resolveImageSource(source: string | undefined) {
   return { uri: source };
 }
 
+function parseAmenities(amenities: string | string[] | undefined): string[] {
+  if (!amenities) return [];
+  if (Array.isArray(amenities)) return amenities;
+  try {
+    const parsed = JSON.parse(amenities);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 const AMENITY_ICONS: Record<string, React.ComponentType<{ size: number; color: string }>> = {
   wifi: Wifi,
   power: Zap,
@@ -48,9 +59,12 @@ const AMENITY_ICONS: Record<string, React.ComponentType<{ size: number; color: s
 };
 
 const ALL_SLOTS = [
-  '08:00', '09:00', '10:00', '11:00', '12:00',
-  '13:00', '14:00', '15:00', '16:00', '17:00',
-  '18:00', '19:00', '20:00',
+  '06:00', '06:30', '07:00', '07:30', '08:00', '08:30',
+  '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
+  '12:00', '12:30', '13:00', '13:30', '14:00', '14:30',
+  '15:00', '15:30', '16:00', '16:30', '17:00', '17:30',
+  '18:00', '18:30', '19:00', '19:30', '20:00', '20:30',
+  '21:00', '21:30',
 ];
 
 function formatDateISO(date: Date): string {
@@ -66,15 +80,6 @@ function isSlotBooked(timeStr: string, bookedSlots: BookedSlot[]): boolean {
     const slotEnd = (slot.end_time ?? '').substring(11, 16);
     return timeStr >= slotStart && timeStr < slotEnd;
   });
-}
-
-function formatDisplayDate(date: Date): string {
-  const today = new Date();
-  const tomorrow = new Date();
-  tomorrow.setDate(today.getDate() + 1);
-  if (formatDateISO(date) === formatDateISO(today)) return 'Today';
-  if (formatDateISO(date) === formatDateISO(tomorrow)) return 'Tomorrow';
-  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
 function addDays(date: Date, days: number): Date {
@@ -93,7 +98,6 @@ export default function PodDetailScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
 
-  // Availability state
   const [availabilityExpanded, setAvailabilityExpanded] = useState(false);
   const [selectedAvailDate, setSelectedAvailDate] = useState<Date>(new Date());
   const [bookedSlots, setBookedSlots] = useState<BookedSlot[]>([]);
@@ -104,7 +108,7 @@ export default function PodDetailScreen() {
     if (!id) return;
     console.log('[PodDetail] Fetching pod:', id);
     try {
-      const data = await apiGet<PodDetail>(`/api/pods/${id}`);
+      const data = await capsuleGet<PodDetail>(`/api/pods/${id}`);
       setPod(data);
       setError('');
     } catch (e: unknown) {
@@ -122,7 +126,7 @@ export default function PodDetailScreen() {
     console.log('[PodDetail] Fetching availability for date:', dateStr);
     setAvailabilityLoading(true);
     try {
-      const data = await apiGet<{ booked_slots: BookedSlot[] }>(
+      const data = await capsuleGet<{ booked_slots: BookedSlot[] }>(
         `/api/pods/${id}/availability?date=${dateStr}`
       );
       setBookedSlots(data.booked_slots || []);
@@ -160,7 +164,7 @@ export default function PodDetailScreen() {
   };
 
   const priceText = pod ? `$${Number(pod.price_per_hour).toFixed(0)}/hr` : '';
-  const amenities = Array.isArray(pod?.amenities) ? pod!.amenities : [];
+  const amenities = parseAmenities(pod?.amenities);
   const podName = pod?.name ?? 'Pod Details';
 
   const availDays = Array.from({ length: 7 }, (_, i) => addDays(new Date(), i));
@@ -360,7 +364,7 @@ export default function PodDetailScreen() {
                 </View>
               )}
 
-              {/* Check Availability section */}
+              {/* Check Availability */}
               {!pod?.is_out_of_service && (
                 <View
                   style={{
@@ -371,7 +375,6 @@ export default function PodDetailScreen() {
                     overflow: 'hidden',
                   }}
                 >
-                  {/* Toggle header */}
                   <AnimatedPressable
                     onPress={handleToggleAvailability}
                     style={{
@@ -415,13 +418,9 @@ export default function PodDetailScreen() {
                     }
                   </AnimatedPressable>
 
-                  {/* Expanded content */}
                   {availabilityExpanded && (
                     <View style={{ paddingHorizontal: 16, paddingBottom: 16, gap: 14 }}>
-                      {/* Divider */}
                       <View style={{ height: 1, backgroundColor: COLORS.divider }} />
-
-                      {/* Day selector */}
                       <ScrollView
                         horizontal
                         showsHorizontalScrollIndicator={false}
@@ -457,49 +456,31 @@ export default function PodDetailScreen() {
                         })}
                       </ScrollView>
 
-                      {/* Slot grid */}
                       {availabilityLoading ? (
                         <View style={{ alignItems: 'center', paddingVertical: 16 }}>
                           <ActivityIndicator color={COLORS.primary} />
-                          <Text style={{ fontSize: 13, color: COLORS.textTertiary, fontFamily: 'DMSans_400Regular', marginTop: 8 }}>
-                            Loading slots...
-                          </Text>
                         </View>
                       ) : (
                         <View style={{ gap: 10 }}>
-                          <View style={{ flexDirection: 'row', gap: 12 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                              <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: COLORS.accentMuted, borderWidth: 1, borderColor: COLORS.accent }} />
-                              <Text style={{ fontSize: 11, color: COLORS.textSecondary, fontFamily: 'DMSans_400Regular' }}>
-                                Available
-                              </Text>
-                            </View>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                              <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: COLORS.surfaceSecondary }} />
-                              <Text style={{ fontSize: 11, color: COLORS.textSecondary, fontFamily: 'DMSans_400Regular' }}>
-                                Booked
-                              </Text>
-                            </View>
-                          </View>
-                          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
                             {ALL_SLOTS.map((slot) => {
                               const booked = isSlotBooked(slot, bookedSlots);
                               return (
                                 <View
                                   key={slot}
                                   style={{
-                                    paddingHorizontal: 12,
-                                    paddingVertical: 8,
-                                    borderRadius: 10,
+                                    paddingHorizontal: 10,
+                                    paddingVertical: 6,
+                                    borderRadius: 8,
                                     backgroundColor: booked ? COLORS.surfaceSecondary : COLORS.accentMuted,
                                     borderWidth: 1,
                                     borderColor: booked ? COLORS.border : COLORS.accent,
-                                    opacity: booked ? 0.6 : 1,
+                                    opacity: booked ? 0.5 : 1,
                                   }}
                                 >
                                   <Text
                                     style={{
-                                      fontSize: 13,
+                                      fontSize: 12,
                                       fontWeight: '600',
                                       color: booked ? COLORS.textTertiary : COLORS.accent,
                                       fontFamily: 'DMSans_600SemiBold',
@@ -515,8 +496,7 @@ export default function PodDetailScreen() {
                             <Text style={{ fontSize: 12, color: COLORS.textTertiary, fontFamily: 'DMSans_400Regular' }}>
                               {bookedCount}
                               {bookedCount === 1 ? ' slot' : ' slots'}
-                              {' already booked on '}
-                              {formatDisplayDate(selectedAvailDate).toLowerCase()}
+                              {' already booked'}
                             </Text>
                           )}
                         </View>
@@ -578,18 +558,11 @@ export default function PodDetailScreen() {
           <AnimatedPressable
             onPress={() => {
               console.log('[PodDetail] Book Now pressed for pod:', id);
-              router.push({
-                pathname: '/(tabs)/booking-wizard',
-                params: {
-                  podId: id,
-                  podName: pod?.name,
-                  pricePerHour: String(pod?.price_per_hour),
-                },
-              });
+              router.push(`/booking/new?pod_id=${id}`);
             }}
             style={{
               flex: 2,
-              backgroundColor: COLORS.primary,
+              backgroundColor: '#1B2B4B',
               borderRadius: 14,
               paddingVertical: 16,
               alignItems: 'center',
